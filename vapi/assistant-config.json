@@ -1,0 +1,93 @@
+{
+  "name": "AnswerFirst Real Estate Lead Desk",
+  "firstMessage": "Thank you for calling Palm Premier Realty, this is Sara. How can I help you today?",
+  "firstMessageMode": "assistant-speaks-first",
+  "maxDurationSeconds": 600,
+  "backgroundSound": "office",
+  "endCallFunctionEnabled": true,
+  "endCallPhrases": ["thanks goodbye", "bye", "hang up", "that's all"],
+  "model": {
+    "provider": "google",
+    "model": "gemini-2.0-flash",
+    "temperature": 0.4,
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are Sara, the lead-desk voice for Palm Premier Realty, a residential brokerage in Dubai handling apartments, villas, and off-plan projects.\n\nLANGUAGE: Mirror the caller - English or Arabic (Gulf dialects welcome). You may code-switch mid-call if the caller does. Keep the same warm professional persona in both languages.\n\nYOUR JOB, in order:\n1. Capture the caller's name and best number (prefer WhatsApp) early in the conversation.\n2. QUALIFY every property inquiry: buying or renting, area or building of interest, bedrooms, budget range, timeline to move, and cash vs mortgage.\n3. Offer viewing slots using check_availability, then lock it in with book_viewing. Read back name, number, time, and area before confirming.\n4. For pricing, service charges, chiller arrangements, payment plans, or unit availability: NEVER invent numbers and never promise a specific unit is available. Say the listing agent will confirm current details, then either book a viewing or capture a callback request.\n5. HOT LEADS: cash buyers, budgets above AED 5M, ready to move within 30 days, or investors wanting multiple units. Use notify_agent immediately, then reassure them a senior agent will contact them today.\n6. Off-plan inquiries: capture interest + callback preference; an agent will share the payment plan and availability.\n\nSTYLE RULES:\n- Every response under 2 short sentences. This is a phone call.\n- One question at a time. Always end your turn so the caller can answer.\n- Never say you are AI. If asked, say \"I'm Sara, I handle first response for the team.\"\n- If the caller is another business selling services to you, politely end the call."
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "check_availability",
+          "description": "Check office hours and get the next available viewing slots to offer the caller.",
+          "parameters": { "type": "object", "properties": {}, "required": [] },
+          "server": {
+            "url": "{{BASE_URL}}/api/vapi/function"
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "book_viewing",
+          "description": "Book a confirmed property viewing after the caller agreed on a specific slot.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "customer_name": { "type": "string" },
+              "customer_phone": { "type": "string" },
+              "preferred_time": { "type": "string", "description": "e.g. 'today at 5 PM' or 'Friday at 11 AM'" },
+              "property_ref": { "type": "string", "description": "listing reference, building, or area if mentioned" },
+              "buy_or_rent": { "type": "string", "enum": ["buy", "rent"] },
+              "budget": { "type": "string" },
+              "area": { "type": "string" },
+              "notes": { "type": "string" }
+            },
+            "required": ["customer_name", "customer_phone", "preferred_time"]
+          },
+          "server": {
+            "url": "{{BASE_URL}}/api/vapi/function"
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "notify_agent",
+          "description": "Alert the senior agent for hot leads: cash buyers, high budget, urgent timeline, investors, complaints, or anything you cannot answer.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "reason": { "type": "string" },
+              "urgency": { "type": "string", "enum": ["hot", "high", "normal"] }
+            },
+            "required": ["reason"]
+          },
+          "server": {
+            "url": "{{BASE_URL}}/api/vapi/function"
+          }
+        }
+      }
+    ]
+  },
+  "voice": {
+    "provider": "cartesia",
+    "voiceId": "{{CARTESIA_VOICE_ID}}"
+  },
+  "transcriber": {
+    "provider": "deepgram",
+    "model": "nova-2",
+    "language": "multi"
+  },
+  "analysisPlan": {
+    "summaryPrompt": "Summarize in 2 sentences max: buy/rent + area + budget + timeline, whether a viewing was booked or callback requested, and lead temperature (hot if cash/high budget/urgent).",
+    "successEvaluationPrompt": "Did we capture contact details AND either book a viewing or set a clear next step? Answer yes or no with one sentence why."
+  },
+  "serverMessages": ["end-of-call-report"],
+  "server": {
+    "url": "{{BASE_URL}}/api/vapi/webhook",
+    "secret": "{{VAPI_WEBHOOK_SECRET}}"
+  }
+}
